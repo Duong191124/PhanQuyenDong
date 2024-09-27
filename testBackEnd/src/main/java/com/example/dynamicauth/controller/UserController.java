@@ -4,7 +4,6 @@ import com.example.dynamicauth.dto.LoginDTO;
 import com.example.dynamicauth.entity.Permition;
 import com.example.dynamicauth.entity.User;
 import com.example.dynamicauth.repository.UserRepository;
-import com.example.dynamicauth.service.UserService;
 import com.example.dynamicauth.util.SecurityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -30,20 +29,11 @@ public class UserController {
     @Autowired
     UserRepository userRepository;
 
-    @Autowired
-    private UserService userService;
-
     @PreAuthorize("hasAuthority('READ_USER')")
     @GetMapping("/{id}")
     public ResponseEntity<?> getUserById(@PathVariable("id")int id){
-        return ResponseEntity.ok().body(userRepository.findById(id).get());
-    }
-
-    @PreAuthorize("hasAuthority('READ_USER')")
-    @GetMapping("/{userId}/permissions")
-    public ResponseEntity<List<Permition>> getPermissions(@PathVariable Integer userId) {
-        List<Permition> permissions = userService.getPermissionsByUserId(userId);
-        return ResponseEntity.ok(permissions);
+        List<Permition> permissions = userRepository.findById(id).map(User::getPermitions).orElseThrow(() -> new RuntimeException("User not found"));
+        return ResponseEntity.ok().body(permissions);
     }
 
     @PreAuthorize("hasAuthority('READ_USER')")

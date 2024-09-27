@@ -36,9 +36,6 @@ public class PermitionController {
             @PathVariable("userId") int userId,
             @RequestBody UserPermissionDTO request
     ) {
-        if (request.getPermissionIds() == null) {
-            throw new IllegalArgumentException("Permission IDs cannot be null");
-        }
         permissionService.assignPermissionsToUser(userId, request.getPermissionIds());
     }
 

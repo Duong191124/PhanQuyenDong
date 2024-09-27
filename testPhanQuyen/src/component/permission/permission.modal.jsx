@@ -2,38 +2,42 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Table, Checkbox } from 'antd';
 import { deletePermissions, getAllPermission, getUserPermissions, updatePermissions } from '../../service/api.service';
 
-const PermissionModal = ({ userId, open, onClose }) => {
+const PermissionModal = React.memo(({ id, open, onClose }) => {
     const [permissions, setPermissions] = useState([]);
     const [userPermissions, setUserPermissions] = useState([]);
 
+    
     useEffect(() => {
-        const loadPermissions = async () => {
-            const res = await getAllPermission();
-            const formattedPermissions = res.data.map(item => ({
+        if (id && open) {
+            loadPermissionsWithUser(id); 
+        }
+    }, [id, open]);
+    
+    const loadPermissionsWithUser = async(id) => {
+        try {
+            const [allPermissionsRes, userPermissionsRes] = await Promise.all([
+                getAllPermission(),
+                getUserPermissions(id)
+            ]);
+    
+            const allPermissions = allPermissionsRes.data.map(item => ({
                 id: item.id,
                 action: item.name,
                 staff: false,
             }));
+    
+            const userPermissions = userPermissionsRes.data.map(item => item.name);
+    
+            const formattedPermissions = allPermissions.map(permission => ({
+                ...permission,
+                staff: userPermissions.includes(permission.action),
+            }));
             setPermissions(formattedPermissions);
-        };
-
-        const loadUserPermissions = async () => {
-            const res = await getUserPermissions(userId);
-            const userPerms = res.data.map(item => item.name);
-            setUserPermissions(userPerms);
-            setPermissions(prevPermissions =>
-                prevPermissions.map(permission => ({
-                    ...permission,
-                    staff: userPerms.includes(permission.action),
-                }))
-            );
-        };
-
-        loadPermissions();
-        if (userId) {
-            loadUserPermissions();
+            setUserPermissions(userPermissions);
+        } catch (error) {
+            console.error("Failed to load permissions:", error);
         }
-    }, [userId, open]);
+    }
 
     const handleCheckboxChange = (action, checked) => {
         setPermissions(prevState =>
@@ -60,14 +64,16 @@ const PermissionModal = ({ userId, open, onClose }) => {
 
 
         try {
+            const promises = [];
+
             if (permissionsToAdd.length > 0) {
-                const res = await updatePermissions(userId, { permissionIds: permissionsToAdd });
+                promises.push(updatePermissions(id, { permissionIds: permissionsToAdd }));
             }
             if (permissionsToRemove.length > 0) {
-                const payload = { permissionIds: permissionsToRemove };
-                console.log("Payload being sent:", payload);
-                const res = await deletePermissions(userId, payload);
+                promises.push(deletePermissions(id, { permissionIds: permissionsToRemove }));
             }
+
+            await Promise.all(promises);
         } catch (error) {
             console.error("Failed to update permissions:", error);
         }
@@ -129,6 +135,6 @@ const PermissionModal = ({ userId, open, onClose }) => {
             </Table>
         </Modal>
     );
-};
+});
 
 export default PermissionModal;

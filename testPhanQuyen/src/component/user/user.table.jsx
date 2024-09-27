@@ -1,15 +1,14 @@
 import { Table } from 'antd';
 import { KeyOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
-import PermissionModal from '../permission/permission.modal';
+import React, { Suspense } from 'react';
 import { useState } from 'react';
 
+const PermissionModal = React.lazy(() => import('../permission/permission.modal'));
 
-const UserTable = (props) => {
+const UserTable = React.memo((props) => {
     const { dataUsers, loadUser } = props;
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
-    const navigate = useNavigate();
 
     const columns = [
         {
@@ -44,13 +43,15 @@ const UserTable = (props) => {
                 dataSource={dataUsers}
                 rowKey="id"
             />
-            <PermissionModal
-                userId={selectedUserId}
-                open={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-            />
+            <Suspense fallback={<div>Loading...</div>}>
+                <PermissionModal
+                    id={selectedUserId}
+                    open={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                />
+            </Suspense>
         </>
     )
-}
+})
 
 export default UserTable;

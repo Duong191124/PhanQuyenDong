@@ -1,14 +1,16 @@
 import { Table } from 'antd';
 import { KeyOutlined } from '@ant-design/icons';
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { useState } from 'react';
+import { getUserPermissions } from '../../service/api.service';
 
 const PermissionModal = React.lazy(() => import('../permission/permission.modal'));
 
 const UserTable = React.memo((props) => {
-    const { dataUsers, loadUser } = props;
+    const { dataUsers } = props;
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
+        
 
     const columns = [
         {

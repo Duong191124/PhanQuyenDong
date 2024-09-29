@@ -7,6 +7,9 @@ import java.util.List;
 
 @Data
 public class UserPermissionDTO {
-    @JsonProperty("permissionIds")
-    private List<Integer> permissionIds;
+    @JsonProperty("permissionToAdd")
+    private List<Integer> permissionToAdd;
+    
+    @JsonProperty("permissionToRemove")
+    private List<Integer> permissionToRemove;
 }

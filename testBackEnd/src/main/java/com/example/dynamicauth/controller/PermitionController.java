@@ -2,14 +2,16 @@ package com.example.dynamicauth.controller;
 
 import com.example.dynamicauth.dto.UserPermissionDTO;
 import com.example.dynamicauth.entity.Permition;
+import com.example.dynamicauth.entity.User;
 import com.example.dynamicauth.repository.PermitionRepository;
-import com.example.dynamicauth.service.PermissionService;
+import com.example.dynamicauth.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/permition")
@@ -20,7 +22,8 @@ public class PermitionController {
     PermitionRepository permitionRepository;
 
     @Autowired
-    PermissionService permissionService;
+    UserRepository userRepository;
+
 
     // Tạo mới một quyền
     @PreAuthorize("hasAuthority('CREATE_PERMITION')")
@@ -28,15 +31,6 @@ public class PermitionController {
     public ResponseEntity<Permition> createPermition(@RequestBody Permition permition) {
         Permition savedPermition = permitionRepository.save(permition);
         return ResponseEntity.ok(savedPermition);
-    }
-
-    @PreAuthorize("hasAuthority('UPDATE_PERMITION')")
-    @PostMapping("/{userId}/permissions")
-    public void updatePermissions(
-            @PathVariable("userId") int userId,
-            @RequestBody UserPermissionDTO request
-    ) {
-        permissionService.assignPermissionsToUser(userId, request.getPermissionIds());
     }
 
     // Lấy tất cả quyền
@@ -58,14 +52,36 @@ public class PermitionController {
 
     // Cập nhật quyền
     @PreAuthorize("hasAuthority('UPDATE_PERMITION')")
-    @PutMapping("/{id}")
-    public ResponseEntity<Permition> updatePermition(@PathVariable Integer id, @RequestBody Permition permition) {
-        if (!permitionRepository.existsById(id)) {
+    @PutMapping("/{userId}")
+    public ResponseEntity<?> updatePermition(@PathVariable("userId") Integer userId, @RequestBody UserPermissionDTO permition) {
+        Optional<User> userOpt = userRepository.findById(userId);
+
+        if (!userOpt.isPresent()) {
             return ResponseEntity.notFound().build();
         }
-        permition.setId(id); // Đặt ID cho quyền để cập nhật
-        Permition updatedPermition = permitionRepository.save(permition);
-        return ResponseEntity.ok(updatedPermition);
+
+        User user = userOpt.get();
+        List<Permition> currentPermitons = user.getPermitions();
+
+        if (permition.getPermissionToAdd() != null) {
+            List<Permition> permissionsToAdd = permitionRepository.findAllById(permition.getPermissionToAdd());
+            for (Permition permission : permissionsToAdd) {
+                if (!currentPermitons.contains(permission)) {
+                    currentPermitons.add(permission); // Add if it doesn't already exist
+                }
+            }
+        }
+
+        if (permition.getPermissionToRemove() != null) {
+            List<Permition> permissionsToRemove = permitionRepository.findAllById(permition.getPermissionToRemove());
+            for (Permition permission : permissionsToRemove) {
+                currentPermitons.remove(permission); // Remove if it exists
+            }
+        }
+
+        user.setPermitions(currentPermitons);
+        User updateUser = userRepository.save(user);
+        return ResponseEntity.ok(updateUser);
     }
 
     // Xóa quyền
@@ -77,13 +93,5 @@ public class PermitionController {
         }
         permitionRepository.deleteById(id);
         return ResponseEntity.noContent().build();
-    }
-
-    @PreAuthorize("hasAuthority('DELETE_PERMITION')")
-    @PutMapping("/{userId}/permissions")
-    public void removePermissions(@PathVariable("userId") int userId, @RequestBody UserPermissionDTO request) {
-        List<Integer> permissionIdsToRemove = request.getPermissionIds();
-         permissionService.removePermissionsFromUser(userId, permissionIdsToRemove);
-
     }
 }

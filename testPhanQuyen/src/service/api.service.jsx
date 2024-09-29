@@ -37,14 +37,9 @@ const getUserPermissions = (id) => {
     return axios.get(URL_BACKEND);
 };
 
-const updatePermissions = (userId, payload) => {
-    const URL_BACKEND = `/permition/${userId}/permissions`;
-    return axios.post(URL_BACKEND, payload);
-};
-
-const deletePermissions = (userId, payload) => {
-    const URL_BACKEND = `/permition/${userId}/permissions`;
+const updatePermissions = (id, payload) =>{
+    const URL_BACKEND = `/permition/${id}`;
     return axios.put(URL_BACKEND, payload);
 };
 
-export {registerCustomerAPI, loginCustomerAPI, getAllPermission, getAllUser, getUserPermissions, updatePermissions, deletePermissions}
+export {registerCustomerAPI, loginCustomerAPI, getAllPermission, getAllUser, getUserPermissions, updatePermissions}

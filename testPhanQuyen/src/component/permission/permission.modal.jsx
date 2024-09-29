@@ -1,43 +1,56 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Table, Checkbox } from 'antd';
-import { deletePermissions, getAllPermission, getUserPermissions, updatePermissions } from '../../service/api.service';
+import { getAllPermission, getUserPermissions, updatePermissions } from '../../service/api.service';
 
 const PermissionModal = React.memo(({ id, open, onClose }) => {
-    const [permissions, setPermissions] = useState([]);
-    const [userPermissions, setUserPermissions] = useState([]);
+    const [permissions, setPermissions] = useState([]); 
+    const [userPermissions, setUserPermissions] = useState([]); 
+    const [initialized, setInitialized] = useState(false); 
+    const allPermissionsRef = useRef([]); // Lưu tất cả quyền để không cần gọi lại API
 
-    
     useEffect(() => {
+        if (open && !initialized) {
+            loadAllPermissions();
+        }
+
         if (id && open) {
-            loadPermissionsWithUser(id); 
+            loadUserPermissions(id);
         }
     }, [id, open]);
-    
-    const loadPermissionsWithUser = async(id) => {
+
+    const loadAllPermissions = async () => {
         try {
-            const [allPermissionsRes, userPermissionsRes] = await Promise.all([
-                getAllPermission(),
-                getUserPermissions(id)
-            ]);
-    
+            const allPermissionsRes = await getAllPermission();
             const allPermissions = allPermissionsRes.data.map(item => ({
                 id: item.id,
                 action: item.name,
-                staff: false,
+                staff: false, 
             }));
-    
-            const userPermissions = userPermissionsRes.data.map(item => item.name);
-    
-            const formattedPermissions = allPermissions.map(permission => ({
-                ...permission,
-                staff: userPermissions.includes(permission.action),
-            }));
-            setPermissions(formattedPermissions);
-            setUserPermissions(userPermissions);
+            setPermissions(allPermissions);  
+            allPermissionsRef.current = allPermissions;
+            setInitialized(true); 
         } catch (error) {
-            console.error("Failed to load permissions:", error);
+            console.error("Failed to load all permissions:", error);
         }
-    }
+    };
+
+    const loadUserPermissions = async (id) => {
+        try {
+            const userPermissionsRes = await getUserPermissions(id);
+            const userPermissions = userPermissionsRes.data.map(item => item.name);
+            
+            // Update trạng thái checked cho các quyền dựa trên userPermissions
+            const updatedPermissions = allPermissionsRef.current.map(permission => ({
+                ...permission,
+                staff: userPermissions.includes(permission.action), 
+            }));
+
+            setPermissions(updatedPermissions);  
+            setUserPermissions(userPermissions); 
+        } catch (error) {
+            console.error("Failed to load user permissions:", error);
+        }
+    };
 
     const handleCheckboxChange = (action, checked) => {
         setPermissions(prevState =>
@@ -53,45 +66,47 @@ const PermissionModal = React.memo(({ id, open, onClose }) => {
             .map(permission => permission.id);
 
         const permissionsToRemove = userPermissions
-            .filter(userPermission => {
-                return !permissions.find(p => p.action === userPermission && p.staff);
-            })
+            .filter(userPermission => 
+                !permissions.find(p => p.action === userPermission && p.staff)
+            )
             .map(userPermission => {
                 const foundPermission = permissions.find(p => p.action === userPermission);
                 return foundPermission ? foundPermission.id : null;
             })
-            .filter(id => id !== null);
+            .filter(id => id !== null && id !== undefined);
 
-
-        try {
-            const promises = [];
-
-            if (permissionsToAdd.length > 0) {
-                promises.push(updatePermissions(id, { permissionIds: permissionsToAdd }));
-            }
-            if (permissionsToRemove.length > 0) {
-                promises.push(deletePermissions(id, { permissionIds: permissionsToRemove }));
-            }
-
-            await Promise.all(promises);
-        } catch (error) {
-            console.error("Failed to update permissions:", error);
+        const payload = {};
+        if (permissionsToAdd.length > 0) {
+            payload.permissionToAdd = permissionsToAdd;
+        }
+        if (permissionsToRemove.length > 0) {
+            payload.permissionToRemove = permissionsToRemove;
         }
 
-        onClose();
-    }
+        if (Object.keys(payload).length > 0) {
+            try {
+                await updatePermissions(id, payload);
+                onClose();
+            } catch (error) {
+                console.error("Failed to update permissions:", error);
+            }
+        } else {
+            console.log("No permissions to update");
+            onClose();
+        }
+    };
 
-    // Tạo nhóm dữ liệu với tiêu đề
+    // Grouping dữ liệu để hiển thị lên table
     const groupData = [
         {
             key: 'permitionGroup',
-            action: 'Permission',
+            action: 'Permissions',
             staff: null,
         },
         ...permissions.filter(item => item.action.includes('PERMITION')),
         {
             key: 'userGroup',
-            action: 'User',
+            action: 'Users',
             staff: null,
         },
         ...permissions.filter(item => item.action.includes('USER')),
@@ -122,7 +137,7 @@ const PermissionModal = React.memo(({ id, open, onClose }) => {
                     )}
                 />
                 <Table.Column
-                    title="Staff"
+                    title="Status"
                     render={(text, record) => (
                         record.key && (record.key === 'permitionGroup' || record.key === 'userGroup') ? null : (
                             <Checkbox
